@@ -94,7 +94,7 @@ while True:
                 print('HERE: {} {:6.2f} {:3d}'.format(k, age, v['count']))
         print()  # TODO: to args verbose
         # TODO: fname to args
-        fname = datetime.datetime.utcnow().strftime('paxlog-%Y%m%d')
+        fname = datetime.datetime.utcnow().strftime('paxlog-%Y%m%d.txt')
         with open(fname, 'at') as f:
             for k in to_remove:
                 r = wifis.pop(k)

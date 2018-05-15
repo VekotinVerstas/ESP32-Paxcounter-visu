@@ -6,7 +6,7 @@ First run `paxcounter_readserial.py` like this on Mac:
 
 Or on Raspberry Pi / other linux:
 
-`python paxcounter_readserial.py /dev/tty.USB0`
+`python paxcounter_readserial.py /dev/ttyUSB0`
 
 Command writes lines like this to a file called `paxlog-%Y%m%d`:
 
