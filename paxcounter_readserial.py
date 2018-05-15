@@ -1,5 +1,10 @@
-# coding=utf-8
+"""
+Read Paxcounter debug data from serial port and write it to a file
+after some calculations.
 
+TODO: cleanup and reorganise
+TODO: add argparse and --quiet / --verbose etc switches.
+"""
 import serial
 import struct, sys
 import sys
@@ -9,8 +14,9 @@ import re
 import pytz
 import json
 
-baudrate = 115200
-MAX_AGE = 60
+baudrate = 115200  # TODO: to args
+MAX_AGE = 10  # TODO: to args
+
 
 def parse_line(line):
     """
@@ -28,8 +34,8 @@ def parse_line(line):
 
 
 ser = serial.Serial()
-ser.port = sys.argv[1]
-ser.baudrate = baudrate
+ser.port = sys.argv[1]  # TODO: to args
+ser.baudrate = baudrate  # TODO: to args
 ser.open()
 ser.flushInput()
 
@@ -75,17 +81,21 @@ while True:
                 if get_age(wifis[mac]['hits'][-1][0]) >= 1.0:
                     wifis[mac]['hits'].append(hit)
         # print(wifis)
-    if time.time() - last_cleanup > 5:
+    if time.time() - last_cleanup > 5:  # TODO: last_cleanup to args
         to_remove = []
         for k, v in wifis.items():
             age = get_age(v['hits'][-1][0])
             if age > MAX_AGE:
-                print('GONE: {} {:6.2f} {:3d}'.format(k, age, v['count']))
+                # TODO: to args verbose
+                print('GONE: {} {:6.2f} {:3d}'.format(k, age, v['count']))
                 to_remove.append(k)
             else:
-                print('HERE: {} {:6.2f} {:3d}'.format(k, age, v['count']))
-        print()
-        with open('wifilog.txt', 'at') as f:
+                # TODO: to args verbose
+                print('HERE: {} {:6.2f} {:3d}'.format(k, age, v['count']))
+        print()  # TODO: to args verbose
+        # TODO: fname to args
+        fname = datetime.datetime.utcnow().strftime('paxlog-%Y%m%d')
+        with open(fname, 'at') as f:
             for k in to_remove:
                 r = wifis.pop(k)
                 r_json = json.dumps(r, default=json_serial)

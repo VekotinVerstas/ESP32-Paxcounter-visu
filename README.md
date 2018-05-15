@@ -8,7 +8,7 @@ Or on Raspberry Pi / other linux:
 
 `python paxcounter_readserial.py /dev/tty.USB0`
 
-Command writes lines like this to a file called `wifilog.txt`:
+Command writes lines like this to a file called `paxlog-%Y%m%d`:
 
 ```
 {"mac": "1D457812", "hits": [["2018-05-15T10:54:51.646436+00:00", "87"]], "rssi": "87", "count": 2}
@@ -20,7 +20,7 @@ Command writes lines like this to a file called `wifilog.txt`:
 
 After running this a while, create web visualisation from the data:
 
-`python paxlog2vis.py wifilog-20180518.txt`
+`python paxlog2vis.py paxlog-20180515.txt`
 
 Then run
 

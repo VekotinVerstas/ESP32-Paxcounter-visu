@@ -1,3 +1,11 @@
+"""
+Convert Paxcounter data log to a vis.js timeline presentation.
+
+TODO: cleanup and reorganise
+TODO: add argparse and --quiet / --verbose etc switches.
+TODO: add some documentation
+"""
+
 import sys
 import json
 
