@@ -15,7 +15,7 @@ import pytz
 import json
 
 baudrate = 115200  # TODO: to args
-MAX_AGE = 10  # TODO: to args
+MAX_AGE = 120  # TODO: to args
 
 
 def parse_line(line):
