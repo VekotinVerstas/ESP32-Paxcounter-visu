@@ -13,35 +13,42 @@ import time
 import re
 import pytz
 import json
+import re
+import argparse
 
 baudrate = 115200  # TODO: to args
-MAX_AGE = 120  # TODO: to args
+MAX_AGE = 10  # TODO: to args
+
+P = re.compile(' (new|known) +(WiFi|BLTH) +RSSI +(-[\d]+)dBi.*MAC ([\d\w]{8,12}) ')
 
 
 def parse_line(line):
     """
-    [I][macsniff.cpp:75] mac_add(): known BLTH RSSI -62dBi -> MAC 0665D2BD -> Hash 2FC8 -> WiFi:17  BLTH:2 -> 79404 Bytes left
-    [I][macsniff.cpp:75] mac_add(): known WiFi RSSI -79dBi -> MAC 29F1233B -> Hash FB99 -> WiFi:17  BLTH:2 -> 79396 Bytes left
+    [I][macsniff.cpp:124] mac_add(): known WiFi RSSI -73dBi -> MAC 98B3E5FB -> Hash 36A0 -> WiFi:10  BLTH:13 -> 50980 Bytes left
+    [I][macsniff.cpp:124] mac_add(): known BLTH RSSI -81dBi -> MAC 36FC8190 -> Hash 6720 -> WiFi:10  BLTH:13 -> 51160 Bytes left
+    [I][macsniff.cpp:130] mac_add(): known BLTH RSSI -81dBi -> MAC D86ABF895CF4 -> Hash 8C27 -> WiFi:8  BLTH:9 -> 51356 Bytes left
+    [I][macsniff.cpp:130] mac_add(): new   WiFi RSSI -78dBi -> MAC 93F5B4DAF1B4 -> Hash DBEB -> WiFi:9  BLTH:9 -> 51344 Bytes left
     """
-    x = line.split()
-    data = {
-        'seen': x[2],
-        'type': x[3],
-        'rssi': re.sub("\D", "", x[5]),
-        'mac': x[8],
-    }
-    return data
+    m = P.search(line)
+    if m:
+        data = {
+            'new': True if m.group(1) == 'new' else False,
+            'type': m.group(2),
+            'rssi': int(m.group(3)),
+            'mac': m.group(4),
+        }
+        return data
+    else:
+        return None
 
 
-ser = serial.Serial()
-ser.port = sys.argv[1]  # TODO: to args
-ser.baudrate = baudrate  # TODO: to args
-ser.open()
-ser.flushInput()
-
-wifis = {}
-bles = {}
-last_cleanup = time.time()
+def get_serial():
+    ser = serial.Serial()
+    ser.port = sys.argv[1]  # TODO: to args
+    ser.baudrate = baudrate  # TODO: to args
+    ser.open()
+    ser.flushInput()
+    return ser
 
 
 def json_serial(obj):
@@ -60,30 +67,51 @@ def get_age(ts):
     return age
 
 
-while True:
-    line = ser.readline().decode("utf-8").strip()
+ser = get_serial()
+wifis = {}
+bles = {}
+devs = {}
+last_cleanup = time.time()
+json_log = []
+
+running = True
+
+while running:
+    try:
+        line = ser.readline().decode("utf-8").strip()
+    except UnicodeDecodeError as err:
+        continue
+    except serial.serialutil.SerialException as err:
+        print(err)
+        print('Exiting now')
+        exit(1)
     #    line = str(line)
-    #    line = line.strip()
+    line = line.strip()
+    print(line)
     ts = get_now()
     if line.find('mac_add') > 0:
         data = parse_line(line)
-        if data['type'].lower() == 'wifi':
+        print(data)
+        logdata = data.copy()
+        logdata['time'] = ts
+        json_log.append(json.dumps(logdata, default=json_serial))
+        if data['type'].lower() in ['wifi', 'blth']:
             mac = data['mac']
             hit = (ts, data['rssi'])
-            if mac not in wifis:
-                wifis[mac] = data
-                wifis[mac].pop('seen')
-                wifis[mac].pop('type')
-                wifis[mac]['hits'] = [hit, ]
-                wifis[mac]['count'] = 1
+            if mac not in devs:
+                devs[mac] = data
+                devs[mac].pop('new')
+                # devs[mac].pop('type')
+                devs[mac]['hits'] = [hit, ]
+                devs[mac]['count'] = 1
             else:
-                wifis[mac]['count'] += 1
-                if get_age(wifis[mac]['hits'][-1][0]) >= 1.0:
-                    wifis[mac]['hits'].append(hit)
-        # print(wifis)
+                devs[mac]['count'] += 1
+                if get_age(devs[mac]['hits'][-1][0]) >= 1.0:
+                    devs[mac]['hits'].append(hit)
+        # print(devs)
     if time.time() - last_cleanup > 5:  # TODO: last_cleanup to args
         to_remove = []
-        for k, v in wifis.items():
+        for k, v in devs.items():
             age = get_age(v['hits'][-1][0])
             if age > MAX_AGE:
                 # TODO: to args verbose
@@ -97,8 +125,12 @@ while True:
         fname = datetime.datetime.utcnow().strftime('paxlog-%Y%m%d.txt')
         with open(fname, 'at') as f:
             for k in to_remove:
-                r = wifis.pop(k)
+                r = devs.pop(k)
                 r_json = json.dumps(r, default=json_serial)
                 f.write(r_json + '\n')
                 # print(json.dumps(r, indent=1, default=json_serial))
+        fname = datetime.datetime.utcnow().strftime('paxlog-%Y%m%d.log')
+        with open(fname, 'at') as f:
+            f.write('\n'.join(json_log))
+            json_log = []
         last_cleanup = time.time()
